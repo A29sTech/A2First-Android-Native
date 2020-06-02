@@ -1,0 +1,2 @@
+rootProject.name='A2First'
+include ':app'
