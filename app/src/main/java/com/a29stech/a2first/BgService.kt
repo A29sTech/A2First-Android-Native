@@ -1,6 +1,7 @@
 package com.a29stech.a2first
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.IBinder
@@ -11,13 +12,19 @@ import com.a29stech.a2first.App.Companion.NOTIFICATION_CH_ID
 
 class BgService: Service() {
 
+    private var isRunning = false
+
     private lateinit var receiver: MyBroadcastReceiver
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
 
-
+    private fun sendResult() {
+        sendBroadcast(
+            Intent("com.a29stech.a2frist.SERVICE_STATUS")
+            .putExtra("isRunning", isRunning))
+    }
 
     private fun createNotification( ) {
 
@@ -36,16 +43,26 @@ class BgService: Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
-        createNotification()
-        receiver = MyBroadcastReceiver()
-        var intentFilter = IntentFilter( Intent.ACTION_USER_PRESENT )
-        intentFilter.addAction("com.a29stech.a2first.CHANGE_VOICE")
-        registerReceiver( receiver, intentFilter )
+        var action = intent?.getStringExtra( "SERVICE_NAME" ) ?: "ERROR"
+
+        if ( action == "LOG_IN_EFFECT_START" ) {
+            createNotification()
+            receiver = MyBroadcastReceiver()
+            var intentFilter = IntentFilter( Intent.ACTION_USER_PRESENT )
+            intentFilter.addAction("com.a29stech.a2first.CHANGE_VOICE")
+            registerReceiver( receiver, intentFilter )
+            isRunning = true
+            sendResult()
+
+        } else sendResult()
+
+        if ( !isRunning ) stopSelf()
+
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver( receiver )
+        if (this::receiver.isInitialized) unregisterReceiver( receiver )
     }
 }

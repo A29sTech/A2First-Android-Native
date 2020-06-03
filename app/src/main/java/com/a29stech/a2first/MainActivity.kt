@@ -1,36 +1,63 @@
 package com.a29stech.a2first
-
-import android.app.Notification
-import android.app.NotificationManager
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.SharedPreferences
+import android.content.*
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+
 import android.view.View
-import android.widget.Toast
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+
 import kotlinx.android.synthetic.main.activity_main.*
+
 
 class MainActivity : AppCompatActivity() {
 
+    class ServiceStatusReceiver( reRun:MainActivity ) : BroadcastReceiver() {
+
+        var reRunner: MainActivity = reRun
+
+        override fun onReceive(context: Context?, intent: Intent?) {
+            var isRunning = intent?.getBooleanExtra( "isRunning", false ) ?: false
+            reRunner.updateServiceStatus( isRunning )
+        }
+    }
+    var serviceStatusReceiver = ServiceStatusReceiver( this )
+
     private var isRunning = false
+
+
+    fun checkPermission() {
+        if ( ContextCompat
+                .checkSelfPermission(this ,
+                    android.Manifest.permission.FOREGROUND_SERVICE
+                ) != PackageManager.PERMISSION_GRANTED ) {
+            ActivityCompat.requestPermissions( this, Array<String>(5){ android.Manifest.permission.FOREGROUND_SERVICE }, 1 )
+        }
+
+    }
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        isRunning = getSharedPreferences("LOGIN_EFFECT", MODE_PRIVATE)
-            .getBoolean("isRunning", false)
-        updateView()
+        checkPermission()
+
+        registerReceiver(serviceStatusReceiver, IntentFilter( "com.a29stech.a2frist.SERVICE_STATUS" ))
+        startService( Intent(this, BgService::class.java) )
 
     }
 
-    fun toogleService(v : View) {
+    fun updateServiceStatus( serviceStatus: Boolean ) {
+        isRunning = serviceStatus
+        updateView()
+    }
 
-        var editState = getSharedPreferences("LOGIN_EFFECT", MODE_PRIVATE).edit()
+    fun toggleService(v : View) {
+
         var intentOfService = Intent( this, BgService::class.java );
 
         if ( !isRunning ) {
@@ -40,18 +67,16 @@ class MainActivity : AppCompatActivity() {
             } else {
                 startService( intentOfService )
             }
-            editState.putBoolean("isRunning", true).apply()
-            isRunning = true
+            btnTglService.isEnabled = false
         } else {
-            intentOfService.putExtra("SERVICE_NAME","LOG_IN_EFFECT_STOP")
             stopService(intentOfService)
-            editState.putBoolean("isRunning", false).apply()
             isRunning = false
+            updateView()
         }
-        updateView()
     }
 
     private fun updateView(){
+        btnTglService.isEnabled = true
         if ( isRunning ) {
             tvServiceStatus.text = "Login Effect is Running..."
             btnTglService.text = "Stop"
@@ -61,9 +86,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     fun changeVoice(v: View) {
         sendBroadcast( Intent("com.a29stech.a2first.CHANGE_VOICE"))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver( serviceStatusReceiver )
     }
 
 }
